@@ -30,7 +30,7 @@ void writeWaveFileHeader(int channels, int numberSamples, int bitsPerSample, dou
 size_t fwriteIntLSB(int data, FILE *stream);
 size_t fwriteShortLSB(short int data, FILE *stream);
 void signalToDouble(Wav* wav,double signalDouble[]);
-void scaleOutputSignal(double* outputSignal, Wav* inputFile, int outputSize);
+void scaleSignal(double* outputSignal, Wav* inputFile, int outputSize);
 
 //Initializations of input files 
 Wav *inputFile = new Wav();
@@ -61,12 +61,51 @@ int main (int argc, char* argv[]) {
 Parameters : just the output file name 
 ******************************************************************************/
 
-void outputWAVFile(char* file) {}
+void outputWAVFile(char* file) {
+
+    int dataSize = (IRFile->signalSize) - 1 + (inputFile->signalSize) ; //P = (M - 1) + N
+    short* outputSignal = new short[dataSize];
+    double* wholeWave = new double[dataSize];
+   
+    //represent signals as doubles for ease of computation
+    double* inputWave = new double[inputFile->signalSize];
+    signalToDouble(inputFile, inputWave);
+
+    double* irWave = new double[IRFile->signalSize];
+    signalToDouble(IRFile, irWave);
+
+    //convolve signal
+    convolve(inputWave, inputFile->signalSize, irWave, IRFile->signalSize, wholeWave, dataSize);
+
+    scaleSignal(inputWave, inputFile, dataSize);
+
+    for (int i = 0; i < dataSize; i++) 
+        outputSignal[i] = (short) inputWave[i]; 
+
+    //Write for file stream
+    FILE* outputFileStream = fopen(file, "wb");
+    if (outputFileStream == NULL) {
+        fprintf(stderr, "File %s cannot be opened for writing\n", file);
+        return;
+    }
+
+    writeWaveFileHeader(inputFile->numChannels, dataSize, inputFile->bitsPerSample, inputFile->sampleRate, outputFileStream);
+
+    cout << "Writing convolved signal to file: " << file << endl;
+
+    for(int i = 0; i < dataSize; i++){
+        fwriteShortLSB(outputSignal[i], outputFileStream);
+    }
+
+    cout << "Writing successful" << endl;
+
+    fclose(outputFileStream);
+}
 
 /****************************************************************************
 *****************************************************************************/
 
-void scaleOutputSignal(double* outputSignal, Wav* inputFile, int outputSize){}
+void scaleSignal(double* outputSignal, Wav* inputFile, int outputSize){}
 
 void signalToDouble(Wav* wav, double signalDouble[]) {}
 
@@ -88,7 +127,7 @@ void signalToDouble(Wav* wav, double signalDouble[]) {}
 *
 *****************************************************************************/
 
-void convolve(float x[], int N, float h[], int M, float y[], int P)
+void convolve(double x[], int N, double h[], int M, double y[], int P)
 {
   int n, m;
 

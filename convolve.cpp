@@ -21,16 +21,23 @@
 #include <fstream>
 #include <stdlib.h>
 
+#define PI         3.141592653589793
+#define TWO_PI     (2.0 * PI)
+#define SIZE       8
+#define SWAP(a,b)  tempr=(a);(a)=(b);(b)=tempr 
+
 using namespace std;
 
 //Function declarations
-void convolve(double x[], int N, double h[], int M, double y[], int P);
-void outputWAVFile(char* fileName);
+void convolve(double x[], double h[], double y[], int P);
+void outputWAVFile(char* file, double* outputSignal, int numSamples);
 void writeWaveFileHeader(int channels, int numberSamples, int bitsPerSample, double outputRate, FILE *outputFile);
 size_t fwriteIntLSB(int data, FILE *stream);
 size_t fwriteShortLSB(short int data, FILE *stream);
 void signalToDouble(Wav* wav,double signalDouble[]);
 void scaleSignal(double* outputSignal, Wav* inputFile, int outputSize);
+void performFFT(char* inputfile, char* irFile, char* outFile);
+void four1(double data[], int nn, int isign);
 
 //Initializations of input files 
 Wav *inputFile = new Wav();
@@ -43,44 +50,165 @@ int main (int argc, char* argv[]) {
         printf("Usage: ./convolve <inputfile.wav> <IRfile.wav> <outputfile.wav>\n");
         return 0;
     }
-    
+
+    double complexData[SIZE * 2];
+
     //reading input wav and IR files
     inputFile->readWavFile(argv[1]);
     IRFile->readWavFile(argv[2]);
 
-    cout << "Input Wav File signal Size" << inputFile->signalSize << endl;
-    cout << "IR file signal Size" << IRFile->signalSize << endl;
+    cout << "Input Wav File signal Size: " << inputFile->signalSize << endl;
+    cout << "IR file signal Size: " << IRFile->signalSize << endl;
 
+    performFFT(argv[1], argv[2], argv[3]);
     //create the result of convolution and output as wavFile
-    outputWAVFile(argv[3]);
+    //outputWAVFile(argv[3]);
 }
 
+void performFFT(char* inputfile, char* irFile, char* outFile) {
+    double* x = new double[inputFile->signalSize];
+    double* h = new double[IRFile->signalSize];
+
+    signalToDouble(inputFile, x);
+    signalToDouble(IRFile, h);
+
+    cout << "signals converted" << endl;
+
+    int sizeFreqX = inputFile->signalSize;
+    int sizeFreqH = IRFile->signalSize;
+            
+    int maxLength = 0;
+    if(sizeFreqX <= sizeFreqH)
+        maxLength = sizeFreqH;
+    else
+        maxLength = sizeFreqX;
+
+    printf("Max length of signals: %d\n", maxLength);
+
+    //Find largest power of two that's less than or equal to maxLength
+    int pow2 = 1;
+    while (pow2 < maxLength) {
+        pow2 *= 2;
+    }
+
+    int maxLengthtoPow2 = pow2*2;
+    double* freqX = new double[maxLengthtoPow2];
+    double* freqH = new double[maxLengthtoPow2];
+
+    for(int i  = 0; i < maxLengthtoPow2; i++){
+        freqX[i] = 0.0;
+        freqH[i] = 0.0;
+    }
+
+    for(int i = 0; i < sizeFreqX; i++){
+        freqX[i*2] = x[i];
+    }
+
+    for(int i = 0; i < sizeFreqH; i++){
+        freqH[i*2] = h[i];
+    }
+
+    //Complete convolution using four1 algo
+    //input .wav
+    cout << "Frequency Domain Transformation for input signal: " << inputfile << endl;
+    four1(freqX - 1, pow2, 1);
+
+    //ir .wav
+    cout << "Frequency Domain Transformation for input signal: " << irFile << endl;
+    four1(freqH - 1, pow2, 1);
+
+    cout << "\n FFT complete" << endl;
+    double* freqY = new double[maxLengthtoPow2];
+
+    convolve(freqX, freqH, freqY, maxLengthtoPow2);
+
+    //Perform inverse FFT to use for comparisons
+    cout << "\n IFFT OUTPUT: " << endl;
+    four1(freqY - 1, pow2, -1);
+    cout << "\n IFFT OUTPUT complete: " << endl;
+
+//seperate real from complex values
+    int outputSize = (inputFile->signalSize) + (IRFile->signalSize) - 1;   
+    double outputMaxValue = 0.0;
+
+    double* freqYSignal = new double[outputSize];
+    for(int i = 0; i < outputSize; i++) {
+        double signalSample = freqY[i*2];
+        freqYSignal[i] = signalSample;
+
+        if(outputMaxValue < abs(signalSample)){
+            outputMaxValue = abs(signalSample);
+        }
+    }
+
+    //Prevent signal cutting and create output file
+    scaleSignal(freqYSignal, inputFile, outputSize);
+
+    outputWAVFile(outFile, freqYSignal, outputSize);
+}
+
+/**
+ four1 FFT from textbook 
+ -1 represents inverse FFT
+**/
+void four1(double data[], int nn, int isign){
+
+    unsigned long n, mmax, m, j, istep, i;
+    double wtemp, wr, wpr, wpi, wi, theta;
+    double tempr, tempi;
+
+    n = nn << 1;
+    j = 1;
+
+    for (i = 1; i < n; i += 2) {
+	    if (j > i) {
+	        SWAP(data[j], data[i]);
+	        SWAP(data[j+1], data[i+1]);
+	    }
+	    m = nn;
+	    while (m >= 2 && j > m) {
+	        j -= m;
+	        m >>= 1;
+	    }
+	    j += m;
+    }
+
+    mmax = 2;
+
+    while (n > mmax) {
+
+        //Initializations
+	    istep = mmax << 1;
+	    theta = isign * (6.28318530717959 / mmax);
+	    wtemp = sin(0.5 * theta);
+	    wpr = -2.0 * wtemp * wtemp;
+	    wpi = sin(theta);
+	    wr = 1.0;
+	    wi = 0.0;
+
+	    for (m = 1; m < mmax; m += 2) {
+	        for (i = m; i <= n; i += istep) {
+		        j = i + mmax;
+		        tempr = wr * data[j] - wi * data[j+1];
+		        tempi = wr * data[j+1] + wi * data[j];
+		        data[j] = data[i] - tempr;
+		        data[j+1] = data[i+1] - tempi;
+		        data[i] += tempr;
+		        data[i+1] += tempi;
+	        }
+	        wr = (wtemp = wr) * wpr - wi * wpi + wr;
+	        wi = wi * wpr + wtemp * wpi + wi;
+	    }
+	    mmax = istep;
+    }
+}
 /*****************************************************************************
 **** Passes data needed to convolve data to the respective convolve function
 
 Parameters : just the output file name 
 ******************************************************************************/
 
-void outputWAVFile(char* file) {
-
-    int dataSize = (IRFile->signalSize) - 1 + (inputFile->signalSize) ; //P = (M - 1) + N
-    short* outputSignal = new short[dataSize];
-    double* wholeWave = new double[dataSize];
-   
-    //represent signals as doubles for ease of computation
-    double* inputWave = new double[inputFile->signalSize];
-    signalToDouble(inputFile, inputWave);
-
-    double* irWave = new double[IRFile->signalSize];
-    signalToDouble(IRFile, irWave);
-
-    //convolve signal
-    convolve(inputWave, inputFile->signalSize, irWave, IRFile->signalSize, wholeWave, dataSize);
-
-    scaleSignal(inputWave, inputFile, dataSize);
-
-    for (int i = 0; i < dataSize; i++) 
-        outputSignal[i] = (short) inputWave[i]; 
+void outputWAVFile(char* file, double* outputSignal, int dataSize) {
 
     //Write for file stream
     FILE* outputFileStream = fopen(file, "wb");
@@ -110,7 +238,7 @@ void scaleSignal(double* outputSignal, Wav* inputFile, int outputSize){
     double inputMaxValue = 0.0;
     double outputMaxValue = 0.0;
 
-    //check for max value in both original and output signals
+    //Make size comparisons
     for(int i = 0; i < outputSize; i++){
         if(inputFile->signal[i] > inputMaxValue)
             inputMaxValue = inputFile->signal[i];
@@ -152,29 +280,37 @@ void signalToDouble(Wav* wav, double signalDouble[]) {
 *
 *****************************************************************************/
 
-void convolve(double x[], int N, double h[], int M, double y[], int P)
+void convolve(double x[], double h[], double y[], int P)
 {
-  int n, m;
-
-  /*  Make sure the output buffer is the right size: P = N + M - 1  */
+    
+  //int n, m;
+//--------------------------------------------------------------
+// PREVIOUS CONVOLUTION ALGO
+//--------------------------------------------------------------
+  /*  Make sure the output buffer is the right size: P = N + M - 1  
   if (P != (N + M - 1)) {
     printf("Output signal vector is the wrong size\n");
     printf("It is %-d, but should be %-d\n", P, (N + M - 1));
     printf("Aborting convolution\n");
     return;
   }
+    **/
+  /*  Clear the output buffer y[] to all zero values  */ 
+//------------------------------------------------------------
 
-  /*  Clear the output buffer y[] to all zero values  */  
-  for (n = 0; n < P; n++)
-    y[n] = 0.0;
+//iNDEXES SWITCH BETWEEN REAL AND COMPLEX VALUES
 
-  /*  Do the convolution  */
-  /*  Outer loop:  process each input value x[n] in turn  */
-  for (n = 0; n < N; n++) {
-    /*  Inner loop:  process x[n] with each sample of h[]  */
-    for (m = 0; m < M; m++)
-      y[n+m] += x[n] * h[m];
-  }
+   for(int i = 0; i < P; i+= 2) {
+
+       //real values
+        y[i] = x[i] * h[i] - x[i+1] * h[i+1]; 
+
+        //imaginary values
+        y[i+1] = x[i+1] * h[i] + x[i] * h[i+1]; 
+    
+        if((i%100000) == 0)
+            printf("Convolving %d...\n", i);
+    }
 }
 
 /******************************************************************************

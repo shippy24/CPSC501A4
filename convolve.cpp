@@ -88,10 +88,10 @@ void performFFT(char* inputfile, char* irFile, char* outFile) {
     //Find largest power of two that's less than or equal to maxLength
     int pow2 = 1;
     while (pow2 < maxLength) {
-        pow2 *= 2;
+        pow2 = pow2 << 1;
     }
 
-    int maxLengthtoPow2 = pow2*2;
+    int maxLengthtoPow2 = pow2 << 1;
     double* freqX = new double[maxLengthtoPow2];
     double* freqH = new double[maxLengthtoPow2];
 
@@ -303,13 +303,18 @@ void convolve(double x[], double h[], double y[], int P)
    for(int i = 0; i < P; i+= 2) {
 
        //real values
-        y[i] = x[i] * h[i] - x[i+1] * h[i+1]; 
+       double realValX = x[i];
+       double realValH = h[i];
+       
+       //imaginary
+       double imaginaryX = x[i+1];
+       double imaginaryH = h[i+1];
+
+        y[i] = (realValX * realValH) - (imaginaryX * imaginaryH); 
 
         //imaginary values
-        y[i+1] = x[i+1] * h[i] + x[i] * h[i+1]; 
+        y[i+1] = imaginaryX * realValH + realValX * imaginaryH; 
     
-        if((i%100000) == 0)
-            printf("Convolving %d...\n", i);
     }
 }
 

@@ -1,0 +1,47 @@
+commit d4d0bc369d18855d4b8499bcc6b85983e64dd051
+Author: Shayne Mujuru <shaynemujuru@gmail.com>
+Date:   Fri Apr 12 16:31:32 2019 -0600
+
+    Finalized
+
+commit 4b9b57732dfa3d046a0fabe521cf0618f23a6f9c
+Author: Shayne Mujuru <shaynemujuru@gmail.com>
+Date:   Fri Apr 12 15:53:14 2019 -0600
+
+    Added regression test for fft
+
+commit f3329bc7263483ec6ca5f25b81920a44e0793831
+Author: Shayne Mujuru <shaynemujuru@gmail.com>
+Date:   Fri Apr 12 15:27:58 2019 -0600
+
+    Algorithmic Optimization Implemented
+
+commit be2d80e5b8aa601e90234580b22d0f3678d27977
+Author: Shayne Mujuru <shaynemujuru@gmail.com>
+Date:   Fri Apr 12 13:45:57 2019 -0600
+
+    Finalized baseline convolution algo
+
+commit 3334c3c5ea2e1eddd0cee914e9e9b8c655911d3f
+Author: Shayne Mujuru <shaynemujuru@gmail.com>
+Date:   Fri Apr 12 13:35:07 2019 -0600
+
+    Addeed output .wav implementation
+
+commit 9f3a7350bb5f9545c428be56225b6404032f0433
+Author: Shayne Mujuru <shaynemujuru@gmail.com>
+Date:   Fri Apr 12 13:11:11 2019 -0600
+
+    Structure of convolution created and partially functional
+
+commit 701b10c1ad34409ffe007d4c557ebd84926a894d
+Author: Shayne Mujuru <shaynemujuru@gmail.com>
+Date:   Fri Apr 12 12:19:44 2019 -0600
+
+    Created Initial Wav class containing data in wavFile
+
+commit 031ea793e9d9b45ede5a3f33327403ece0127ea4
+Author: Shayne Mujuru <shaynemujuru@gmail.com>
+Date:   Fri Apr 12 01:44:55 2019 -0600
+
+    Initial commit and initializations

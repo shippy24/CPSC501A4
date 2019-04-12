@@ -103,11 +103,36 @@ void outputWAVFile(char* file) {
 }
 
 /****************************************************************************
+Removes clipping in audio
 *****************************************************************************/
 
-void scaleSignal(double* outputSignal, Wav* inputFile, int outputSize){}
+void scaleSignal(double* outputSignal, Wav* inputFile, int outputSize){
+    double inputMaxValue = 0.0;
+    double outputMaxValue = 0.0;
 
-void signalToDouble(Wav* wav, double signalDouble[]) {}
+    //check for max value in both original and output signals
+    for(int i = 0; i < outputSize; i++){
+        if(inputFile->signal[i] > inputMaxValue)
+            inputMaxValue = inputFile->signal[i];
+
+        if(outputSignal[i] > outputMaxValue)
+            outputMaxValue = outputSignal[i];
+    }
+    
+    for(int i  = 0; i < outputSize; i++){
+        outputSignal[i] = outputSignal[i] / outputMaxValue * inputMaxValue;
+    }
+}
+
+/****************************************************************************
+Converts .wav into an array
+*****************************************************************************/
+
+void signalToDouble(Wav* wav, double signalDouble[]) {
+    for(int i  = 0; i < (wav->signalSize); i++){
+        signalDouble[i] = ((double) wav->signal[i])/32678.0;
+    }
+}
 
 /*****************************************************************************
 *
